@@ -18,11 +18,8 @@ import { signOut, useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 
 const navigation = [
-  { name: "Dashboard", href: "#", icon: HomeIcon, current: true },
-  
-  ,
-  { name: "View", href: "/view", icon: CalendarIcon, current: false },
-
+  { name: "Dashboard", href: "/tournaments", icon: HomeIcon, current: false },
+  { name: "View", href: "#", icon: CalendarIcon, current: true },
 ];
 const teams = [
   { id: 1, name: "Heroicons", href: "#", initial: "H", current: false },

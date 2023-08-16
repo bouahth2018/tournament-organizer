@@ -45,6 +45,14 @@ export default async function Tournament({ params }: Params) {
             Participant
           </Link>
         </div>
+        <div className="">
+          <Link
+            href={`/tournaments/${params.tournamentId}/participants/create`}
+            className="underline"
+          >
+           Add Participant
+          </Link>
+        </div>
       </div>
     </div>
   );

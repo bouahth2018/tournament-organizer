@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { Stage } from "@prisma/client";
 import { stageTypes } from "../../page";
-import React from "react";
+import React, { useState } from "react";
 
 async function getStage(stageId: string) {
   const stage = await prisma.stage.findFirst({
@@ -29,12 +29,8 @@ interface Params {
 }
 
 export default async function StageResult({ params }: Params) {
-  const stageData = getStage(params.stageId);
-  const participantsData = getParticipants(params.tournamentId);
-  const [stage, participants] = await Promise.all([
-    stageData,
-    participantsData,
-  ]);
+  const stage = await getStage(params.stageId);
+  const participants = await getParticipants(params.tournamentId);
   const teams = [
     "Team 1",
     "Team 2",
@@ -53,8 +49,9 @@ export default async function StageResult({ params }: Params) {
     "Team 15",
     "Team 16",
   ];
-  // const bracket = createBracket(stage, teams);
-  const bracket = createBracket(stage);
+  const seededTeams: any[] = [];
+
+  const bracket = createBracket(stage, teams, seededTeams);
   const allMatches = bracket.reduce(
     (matches, round) => [...matches, ...round],
     []
@@ -124,8 +121,8 @@ export default async function StageResult({ params }: Params) {
                       >
                         <div className="flex items-center mb-[1px]">
                           <div className="text-neutral-900">
-                            {match.match[0] ? (
-                              match.match[0]
+                            {match.match.opponents[0] ? (
+                              match.match.opponents[0]
                             ) : (
                               <span>&nbsp;</span>
                             )}
@@ -133,8 +130,8 @@ export default async function StageResult({ params }: Params) {
                         </div>
                         <div className="flex items-center mb-0">
                           <div className="text-neutral-900">
-                            {match.match[1] ? (
-                              match.match[1]
+                            {match.match.opponents[1] ? (
+                              match.match.opponents[1]
                             ) : (
                               <span>&nbsp;</span>
                             )}
@@ -150,9 +147,8 @@ export default async function StageResult({ params }: Params) {
                 className="absolute z-0 overflow-hidden w-full h-full"
                 x={0}
                 y={0}
-                viewBox={`0 0 ${bracket.length * 14000} ${
-                  bracket[0].length * 5000
-                }`}
+                viewBox={`0 0 ${bracket.length * 14000} ${bracket[0].length * 5000
+                  }`}
                 id="bracket-links"
               >
                 {links.map((points, i) => (
@@ -172,9 +168,11 @@ export default async function StageResult({ params }: Params) {
   );
 }
 
-// export function createBracket(stage: Stage | null, teams: any) {
-export function createBracket(stage: Stage | null) {
-  // @ts-ignore
+export function createBracket(stage: any, teams: any[], seededTeams: any[]) {
+  if (!stage || !stage.settings) {
+    throw new Error("Invalid stage or stage settings");
+  }
+
   const size = stage.settings.size;
   const rounds = Math.log2(size);
   const bracket = [];
@@ -196,18 +194,39 @@ export function createBracket(stage: Stage | null) {
       const nextMatchIndex = Math.floor(j / 2);
 
       let match: string[] = [];
-      // if (i === 0) {
-      //   // match = [teams[j].name, teams[teams.length - 1 - j].name];
-      //   match = [teams[j], teams[teams.length - 1 - j]];
-      // }
+      if (i === 0 && seededTeams && seededTeams.length > 0) {
+        const seededIndex = Math.floor(j / 2);
+        match = [
+          seededTeams[seededIndex],
+          seededTeams[seededTeams.length - 1 - seededIndex]
+        ];
+      }
+
+      // Create a new match in the match table
+      const newMatch = {
+        id: generateUUID(),
+        stageId: stage.id,
+        groupId: null,
+        roundId: null,
+        number: j + 1,
+        type: "single-elimination",
+        status: "pending",
+        settings: {},
+        scheduled_datetime: null,
+        played_at: null,
+        public_note: "",
+        private_note: "",
+        report_closed: false,
+        report_status: "report",
+        opponents: match
+      };
 
       round.push({
-        match,
+        match: newMatch,
         winner: null,
         name,
         nextMatchIndex,
         left: `${14 * i}rem`,
-        // top: `${j * multiplier * 4.625 + offsets[i]}rem`,
         top: `${j * multiplier * 4.625 + offset}rem`,
       });
     }
@@ -218,6 +237,7 @@ export function createBracket(stage: Stage | null) {
   }
 
   return bracket;
+
 }
 
 export function createLinks(bracket: any) {
@@ -250,3 +270,12 @@ export function createLinks(bracket: any) {
 
   return links;
 }
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0,
+          v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+
