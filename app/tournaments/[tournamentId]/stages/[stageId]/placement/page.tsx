@@ -1,25 +1,13 @@
-import prisma from "@/lib/prisma";
+"use client";
 import { createBracket, createLinks } from "../result/page";
 import SeedForm from "@/components/seeding/seed-form";
+import { useState } from "react";
+import { getStage, getParticipants } from './prismaUtils';
 
-async function getStage(stageId: string) {
-  return await prisma.stage.findFirst({
-    where: {
-      id: stageId,
-    },
-  });
-}
 
-async function getParticipants(tournamentId: string) {
-  return await prisma.participant.findMany({
-    where: {
-      tournamentId: tournamentId,
-    },
-    select: {
-      id: true,
-      name: true,
-    },
-  });
+interface Participant {
+  id: string;
+  name: string;
 }
 
 interface Params {
@@ -29,20 +17,26 @@ interface Params {
   };
 }
 
-export default async function StagePlacement({ params }: Params) {
-  const stageData = getStage(params.stageId);
-  const particpantsData = getParticipants(params.tournamentId);
-  const [stage, participants] = await Promise.all([stageData, particpantsData]);
-  const stageSize: number = (stage?.settings as any)?.size;
+export default function StagePlacement({ params }: Params) {
+  const [seededParticipants, setSeededParticipants] = useState<Participant[]>([]);
 
-  const bracket = createBracket(stage);
-  const allMatches = bracket.reduce(
-    (matches, round) => [...matches, ...round],
-    []
-  );
-  const links = createLinks(bracket);
+  const handleFormSubmit = (participants: Participant[]) => {
+    setSeededParticipants(participants);
+  };
 
-  return (
+  const fetchStageAndParticipants = async () => {
+    const stageData = await getStage(params.stageId);
+    const participantsData = await getParticipants(params.tournamentId);
+    const [stage, participants] = await Promise.all([stageData, participantsData]);
+    const stageSize: number = (stage?.settings as any)?.size;
+
+    const teams = participants.map((participant) => participant.name);
+
+    const bracket = createBracket(stage, teams, seededParticipants);
+    const allMatches = bracket.reduce((matches, round) => [...matches, ...round], []);
+    const links = createLinks(bracket);
+
+    return (
     <div className="px-4 sm:px-6 lg:px-8">
       <h1 className="text-3xl font-medium">Placement</h1>
       <div className="mt-8 grid grid-cols-1 md:grid-cols-5 gap-8">
@@ -59,7 +53,7 @@ export default async function StagePlacement({ params }: Params) {
               id="card-content"
             >
               {/* CARD */}
-              <SeedForm numSeeds={stageSize} participants={participants} />
+              <SeedForm numSeeds={stageSize} participants={participants} onSubmit={handleFormSubmit} />
             </div>
           </div>
         </div>
@@ -156,6 +150,7 @@ export default async function StagePlacement({ params }: Params) {
           </div>
         </div>
       </div>
+      {fetchStageAndParticipants()}
     </div>
   );
-}
+                    }}

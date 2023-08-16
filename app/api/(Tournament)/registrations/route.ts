@@ -1,5 +1,4 @@
 import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -12,11 +11,19 @@ export async function GET() {
     }
 
     const { user } = session;
+
+    // Move the PrismaClient instantiation and usage inside the server-side block
+    const { PrismaClient } = require("@prisma/client");
+    const prisma = new PrismaClient();
+
     const registration = await prisma.registration.findMany({
       where: {
         userId: user.id,
       },
     });
+
+    // Close the Prisma client connection after use
+    await prisma.$disconnect();
 
     return NextResponse.json(registration);
   } catch (error) {
